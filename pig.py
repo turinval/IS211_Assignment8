@@ -6,31 +6,23 @@ IS211 Assignment 8 - Game of Pig with Design Patterns (Proxy & Factory)
 import argparse
 import random
 import time
-import sys
-
 
 class Player:
     """Base player class."""
-
     def __init__(self, name: str):
         self.name = name
         self.score = 0
 
     def decide_action(self, turn_total: int) -> str:
-        """Determines whether to roll ('r') or hold ('h').
-
-        Must be overridden by subclasses.
-        """
+        """Determines whether to roll ('r') or hold ('h')."""
         raise NotImplementedError("Subclasses must implement decide_action.")
 
     def reset(self):
         """Resets the player score."""
         self.score = 0
 
-
 class HumanPlayer(Player):
     """Represents a human-controlled player."""
-
     def decide_action(self, turn_total: int) -> str:
         while True:
             choice = input(
@@ -41,10 +33,8 @@ class HumanPlayer(Player):
                 return choice
             print("Invalid input. Please enter 'r' to roll or 'h' to hold.")
 
-
 class ComputerPlayer(Player):
     """Represents an automated player using a predefined strategy."""
-
     def decide_action(self, turn_total: int) -> str:
         # Strategy: Hold at min(25, 100 - x), otherwise roll
         target = min(25, 100 - self.score)
@@ -52,10 +42,8 @@ class ComputerPlayer(Player):
             return "h"
         return "r"
 
-
 class PlayerFactory:
     """Factory to instantiate the appropriate Player subclass."""
-
     @staticmethod
     def create_player(player_type: str, name: str) -> Player:
         normalized_type = player_type.strip().lower()
@@ -66,20 +54,16 @@ class PlayerFactory:
         else:
             raise ValueError(f"Unknown player type: {player_type}. Choose 'human' or 'computer'.")
 
-
 class Die:
     """Standard six-sided die."""
-
     def __init__(self, sides: int = 6):
         self.sides = sides
 
     def roll(self) -> int:
         return random.randint(1, self.sides)
 
-
 class Game:
     """Core Pig game implementation."""
-
     def __init__(self, player1: Player, player2: Player, target_score: int = 100):
         self.players = [player1, player2]
         self.current_player_idx = 0
@@ -95,10 +79,7 @@ class Game:
         self.current_player_idx = 1 - self.current_player_idx
 
     def play_turn(self) -> bool:
-        """Executes a single turn.
-
-        Returns True if a player has won the game, False otherwise.
-        """
+        """Executes a single turn. Returns True if a player wins."""
         player = self.current_player
         turn_total = 0
         print(f"\n--- {player.name}'s turn (Total: {player.score}) ---")
@@ -128,7 +109,7 @@ class Game:
                 return False
 
     def play(self):
-        """Starts and runs standard gameplay loop until a winner is found."""
+        """Starts and runs standard gameplay loop."""
         print("=== Welcome to the Game of Pig ===")
         print(f"{self.players[0].name} vs {self.players[1].name}\n")
 
@@ -137,17 +118,14 @@ class Game:
 
         print(f"\nGame Over! {self.winner.name} wins with {self.winner.score} points!")
 
-
 class TimedGameProxy:
     """Proxy for the Game class that enforces a 60-second time limit."""
-
     def __init__(self, game: Game, time_limit: float = 60.0):
         self._game = game
         self.time_limit = time_limit
         self.start_time = None
 
     def __getattr__(self, name):
-        """Delegate attribute/method lookups to the underlying Game instance."""
         return getattr(self._game, name)
 
     def is_time_up(self) -> bool:
@@ -161,11 +139,9 @@ class TimedGameProxy:
             return p1
         elif p2.score > p1.score:
             return p2
-        else:
-            return None  # Tie
+        return None  # Tie
 
     def play_turn(self) -> bool:
-        """Executes a single roll/hold decision step with real-time expiration checks."""
         if self.is_time_up():
             return True
 
@@ -180,7 +156,6 @@ class TimedGameProxy:
 
             action = player.decide_action(turn_total)
 
-            # Re-check in case user took long to enter input
             if self.is_time_up():
                 print("\n[TIME'S UP!] One minute has elapsed.")
                 return True
@@ -208,7 +183,6 @@ class TimedGameProxy:
                 return False
 
     def play(self):
-        """Runs the game loop bounded by the timer."""
         print("=== Welcome to Timed Pig (60-second limit) ===")
         print(f"{self._game.players[0].name} vs {self._game.players[1].name}\n")
         self.start_time = time.time()
@@ -219,7 +193,39 @@ class TimedGameProxy:
         if self._game.winner:
             print(f"\nGame Over! {self._game.winner.name} wins with {self._game.winner.score} points!")
         else:
-            # Time expired before 100 points
             winner = self.determine_time_up_winner()
             p1, p2 = self._game.players
-            print
+            print(f"\nTime's up! Final Scores - {p1.name}: {p1.score}, {p2.name}: {p2.score}")
+            if winner:
+                print(f"{winner.name} wins by having the highest score when time expired!")
+            else:
+                print("It's a tie!")
+
+def main():
+    """Main entry point to parse arguments and start the game."""
+    parser = argparse.ArgumentParser(description="Play the game of Pig.")
+    parser.add_argument("--player1", type=str, default="human", choices=["human", "computer"],
+                        help="Type of player 1 (human or computer)")
+    parser.add_argument("--player2", type=str, default="computer", choices=["human", "computer"],
+                        help="Type of player 2 (human or computer)")
+    parser.add_argument("--timed", action="store_true", 
+                        help="Play with a 60-second time limit")
+    
+    args = parser.parse_args()
+
+    # Use the Factory pattern to instantiate players
+    p1 = PlayerFactory.create_player(args.player1, "Player 1")
+    p2 = PlayerFactory.create_player(args.player2, "Player 2")
+
+    # Initialize the base game
+    game = Game(p1, p2)
+
+    # Use the Proxy pattern if the timed flag is set
+    if args.timed:
+        timed_game = TimedGameProxy(game)
+        timed_game.play()
+    else:
+        game.play()
+
+if __name__ == "__main__":
+    main()
